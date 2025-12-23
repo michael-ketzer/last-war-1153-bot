@@ -2,18 +2,19 @@ import { Message } from 'discord.js';
 import { config } from 'dotenv';
 config();
 
+import { TargetLanguageCode } from 'deepl-node';
 import { initDiscordClient, sendWebhookMessage } from './discord';
 import { detectLanguage, translate } from './translator';
 
 const channelConfig: Record<
   string,
   {
-    language: string;
+    language: TargetLanguageCode;
     webhook: string;
   }
 > = {
   '1451935412254801922': {
-    language: 'en',
+    language: 'en-US',
     webhook:
       'https://discord.com/api/webhooks/1452758955855057008/FdkpM6J-dk51xEQPSR4BodatOsOF_8DqG8TvyIMpEktgyfkWpkrOvXUay8Tbs4aIEpH7',
   },
@@ -54,13 +55,15 @@ const singleChannelTranslations = [
 ];
 
 async function onMessage(message: Message): Promise<void> {
+  console.log(`[${message.channelId}] ${message.author.displayName}: ${message.content}`);
+
   const sourceChannel = channelConfig[message.channelId];
   if (!sourceChannel) {
     const trimmedContent = message.content.trim();
     if (trimmedContent) {
       const detectedLanguage = await detectLanguage(trimmedContent);
-      if (detectedLanguage !== 'en') {
-        const translated = await translate(trimmedContent, 'en');
+      if (detectedLanguage !== 'en-US') {
+        const translated = await translate(trimmedContent, 'en-US');
         await message.reply(translated);
       }
     }
