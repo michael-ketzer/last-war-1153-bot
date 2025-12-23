@@ -54,10 +54,20 @@ const singleChannelTranslations = [
   '1451991231281365166',
 ];
 
-async function onMessage(message: Message): Promise<void> {
-  console.log(`[${message.channelId}] ${message.author.displayName}: ${message.content}`);
+async function onMessage(message: Message, referenceMessage?: Message | null): Promise<void> {
+  const effectiveChannelId = message.channel.isThread()
+    ? message.channel.parentId ?? message.channelId
+    : message.channelId;
+  const authorName = message.member?.displayName ?? message.author.username;
+  const referenceSnippet = referenceMessage
+    ? ` (reply to ${referenceMessage.member?.displayName ?? referenceMessage.author.username}: ${
+        referenceMessage.content
+      })`
+    : '';
 
-  const sourceChannel = channelConfig[message.channelId];
+  console.log(`[${effectiveChannelId}] ${authorName}: ${message.content}${referenceSnippet}`);
+
+  const sourceChannel = channelConfig[effectiveChannelId];
   if (!sourceChannel) {
     const trimmedContent = message.content.trim();
     if (trimmedContent) {
@@ -73,7 +83,11 @@ async function onMessage(message: Message): Promise<void> {
   const trimmedContent = message.content.trim();
   if (!trimmedContent) {
     if (message.attachments.size > 0) {
-      await sendWebhookMessage(sourceChannel.webhook, message, '');
+      for (const [channelId, { webhook }] of channelEntries) {
+        if (channelId !== effectiveChannelId) {
+          await sendWebhookMessage(webhook, message, '');
+        }
+      }
     }
     return;
   }
@@ -85,7 +99,7 @@ async function onMessage(message: Message): Promise<void> {
   }
 
   for (const [channelId, { language, webhook }] of channelEntries) {
-    if (channelId !== message.channelId) {
+    if (channelId !== effectiveChannelId) {
       const translated = await translate(trimmedContent, language);
       await sendWebhookMessage(webhook, message, translated);
     }

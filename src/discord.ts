@@ -11,16 +11,26 @@ const webhookClients = new Map<string, WebhookClient>();
 
 export async function initDiscordClient(
   channelIds: string[],
-  messageCallback: (message: Message) => Promise<void>,
+  messageCallback: (message: Message, referenceMessage?: Message | null) => Promise<void>,
 ): Promise<void> {
   client.on('messageCreate', async (message) => {
     // Ignore bots (important, or you’ll loop via webhook messages)
     if (message.author.bot) return;
 
-    // Only watch specific channels
-    if (!channelIds.includes(message.channelId)) return;
+    // Treat thread replies as belonging to their parent channel.
+    const watchedChannelId = message.channel.isThread()
+      ? message.channel.parentId
+      : message.channelId;
+    if (!watchedChannelId) return;
 
-    await messageCallback(message);
+    // Only watch specific channels
+    if (!channelIds.includes(watchedChannelId)) return;
+
+    const referenceMessage = message.reference?.messageId
+      ? await message.fetchReference().catch(() => null)
+      : null;
+
+    await messageCallback(message, referenceMessage);
   });
 
   await client.login(process.env.DISCORD_BOT_TOKEN);
